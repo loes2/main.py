@@ -1,6 +1,5 @@
 import logging
 import random
-import asyncio
 from telegram import Update, ChatPermissions
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, CallbackContext
 
@@ -27,48 +26,68 @@ logger = logging.getLogger(__name__)
 
 # أمر /start
 async def start(update: Update, context: CallbackContext):
-    await update.message.reply_text("مرحبًا! أنا أليكس، بوت الدردشة والتفاعل.")
+    try:
+        await update.message.reply_text("مرحبًا! أنا أليكس، بوت الدردشة والتفاعل.")
+    except Exception as e:
+        logger.error(f"حدث خطأ في أمر /start: {e}")
 
 # أمر /truthordare (لعبة كت أو رواية)
 async def truth_or_dare_game(update: Update, context: CallbackContext):
-    question = random.choice(truth_or_dare)
-    await update.message.reply_text(f"🎲 {question}")
+    try:
+        question = random.choice(truth_or_dare)
+        await update.message.reply_text(f"🎲 {question}")
+    except Exception as e:
+        logger.error(f"حدث خطأ في لعبة كت أو رواية: {e}")
 
 # الرد التلقائي على الرسائل
 async def reply_randomly(update: Update, context: CallbackContext):
-    if update.message.text:
-        response = random.choice(random_replies)
-        await update.message.reply_text(response)
+    try:
+        if update.message.text:
+            response = random.choice(random_replies)
+            await update.message.reply_text(response)
+    except Exception as e:
+        logger.error(f"حدث خطأ في الرد العشوائي: {e}")
 
 # أمر /mute (كتم عضو)
 async def mute(update: Update, context: CallbackContext):
-    if not context.args:
-        await update.message.reply_text("يرجى تحديد المستخدم @username")
-        return
-    user = context.args[0]
-    await update.message.chat.restrict_member(user, ChatPermissions(can_send_messages=False))
-    await update.message.reply_text(f"🚫 تم كتم {user} بنجاح!")
+    try:
+        if not context.args:
+            await update.message.reply_text("يرجى تحديد المستخدم @username")
+            return
+        user = context.args[0]
+        await update.message.chat.restrict_member(user, ChatPermissions(can_send_messages=False))
+        await update.message.reply_text(f"🚫 تم كتم {user} بنجاح!")
+    except Exception as e:
+        logger.error(f"حدث خطأ في كتم المستخدم: {e}")
+        await update.message.reply_text("حدث خطأ أثناء محاولة كتم العضو.")
 
 # أمر /unmute (إلغاء كتم عضو)
 async def unmute(update: Update, context: CallbackContext):
-    if not context.args:
-        await update.message.reply_text("يرجى تحديد المستخدم @username")
-        return
-    user = context.args[0]
-    await update.message.chat.restrict_member(user, ChatPermissions(can_send_messages=True))
-    await update.message.reply_text(f"✅ تم إلغاء كتم {user} بنجاح!")
+    try:
+        if not context.args:
+            await update.message.reply_text("يرجى تحديد المستخدم @username")
+            return
+        user = context.args[0]
+        await update.message.chat.restrict_member(user, ChatPermissions(can_send_messages=True))
+        await update.message.reply_text(f"✅ تم إلغاء كتم {user} بنجاح!")
+    except Exception as e:
+        logger.error(f"حدث خطأ في إلغاء كتم المستخدم: {e}")
+        await update.message.reply_text("حدث خطأ أثناء محاولة إلغاء كتم العضو.")
 
 # إعداد البوت
-def main():
-    app = Application.builder().token(TOKEN).build()
+async def main():
+    try:
+        app = Application.builder().token(TOKEN).build()
 
-    app.add_handler(CommandHandler("start", start))
-    app.add_handler(CommandHandler("truthordare", truth_or_dare_game))
-    app.add_handler(CommandHandler("mute", mute))
-    app.add_handler(CommandHandler("unmute", unmute))
-    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, reply_randomly))
+        app.add_handler(CommandHandler("start", start))
+        app.add_handler(CommandHandler("truthordare", truth_or_dare_game))
+        app.add_handler(CommandHandler("mute", mute))
+        app.add_handler(CommandHandler("unmute", unmute))
+        app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, reply_randomly))
 
-    app.run_polling()
+        await app.run_polling()
+    except Exception as e:
+        logger.error(f"حدث خطأ أثناء تشغيل البوت: {e}")
 
 if __name__ == "__main__":
-    main()
+    asyncio.run(main())
