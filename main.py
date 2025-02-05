@@ -1,13 +1,26 @@
+import asyncio
 import logging
 import random
 from telegram import Update, ChatPermissions
-from telegram.ext import Application, CommandHandler, MessageHandler, filters, CallbackContext
+from telegram.ext import (
+    Application,
+    CommandHandler,
+    MessageHandler,
+    CallbackContext,
+    filters,
+)
 
 # إعداد التوكن (ضع توكن البوت هنا)
 TOKEN = "7838191538:AAHm79xzV1IlEu5NI-L25majcR_o1EGS49Y"
 
 # قائمة ردود عشوائية
-random_replies = ["مرحبا!", "كيف حالك؟", "ماذا تفعل؟", "أنا هنا للمساعدة!", "هل تحتاج إلى شيء؟"]
+random_replies = [
+    "مرحبا!",
+    "كيف حالك؟",
+    "ماذا تفعل؟",
+    "أنا هنا للمساعدة!",
+    "هل تحتاج إلى شيء؟"
+]
 
 # قائمة أسئلة لعبة "كت أو رواية"
 truth_or_dare = [
@@ -23,6 +36,13 @@ logging.basicConfig(
     level=logging.INFO
 )
 logger = logging.getLogger(__name__)
+
+# دالة لمعالجة الأخطاء العامة
+async def error_handler(update: object, context: CallbackContext) -> None:
+    logger.error(msg="حدث خطأ أثناء معالجة التحديث:", exc_info=context.error)
+    # يمكن إرسال رسالة للمستخدم إن رغبت بذلك (اختياري)
+    if update and getattr(update, "message", None):
+        await update.message.reply_text("عذراً، حدث خطأ أثناء معالجة طلبك.")
 
 # أمر /start
 async def start(update: Update, context: CallbackContext):
@@ -74,17 +94,22 @@ async def unmute(update: Update, context: CallbackContext):
         logger.error(f"حدث خطأ في إلغاء كتم المستخدم: {e}")
         await update.message.reply_text("حدث خطأ أثناء محاولة إلغاء كتم العضو.")
 
-# إعداد البوت
+# إعداد وتشغيل البوت
 async def main():
     try:
         app = Application.builder().token(TOKEN).build()
 
+        # إضافة المعالجات للأوامر
         app.add_handler(CommandHandler("start", start))
         app.add_handler(CommandHandler("truthordare", truth_or_dare_game))
         app.add_handler(CommandHandler("mute", mute))
         app.add_handler(CommandHandler("unmute", unmute))
         app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, reply_randomly))
+        
+        # إضافة معالج الأخطاء العام
+        app.add_error_handler(error_handler)
 
+        # بدء تشغيل البوت
         await app.run_polling()
     except Exception as e:
         logger.error(f"حدث خطأ أثناء تشغيل البوت: {e}")
