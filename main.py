@@ -1,6 +1,7 @@
-import asyncio
+import os
 import logging
 import random
+import openai
 from telegram import Update, ChatPermissions
 from telegram.ext import (
     Application,
@@ -9,9 +10,17 @@ from telegram.ext import (
     CallbackContext,
     filters,
 )
+from dotenv import load_dotenv
 
-# إعداد التوكن (ضع توكن البوت هنا)
-TOKEN = "7838191538:AAHm79xzV1IlEu5NI-L25majcR_o1EGS49Y"
+# تحميل المتغيرات البيئية
+load_dotenv()
+
+# إعداد التوكن (من ملف .env)
+TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+
+# إعداد المفتاح API لـ OpenAI
+openai.api_key = OPENAI_API_KEY
 
 # قائمة ردود عشوائية
 random_replies = [
@@ -20,14 +29,6 @@ random_replies = [
     "ماذا تفعل؟",
     "أنا هنا للمساعدة!",
     "هل تحتاج إلى شيء؟"
-]
-
-# قائمة أسئلة لعبة "كت أو رواية"
-truth_or_dare = [
-    "هل سبق لك أن كذبت على شخص مهم؟",
-    "ما هو أسوأ سر تخفيه؟",
-    "تحدي: ارسل رسالة صوتية تغني فيها!",
-    "حقيقة: من هو أقرب شخص إلى قلبك؟"
 ]
 
 # إعداد السجل
@@ -51,48 +52,23 @@ async def start(update: Update, context: CallbackContext):
     except Exception as e:
         logger.error(f"حدث خطأ في أمر /start: {e}")
 
-# أمر /truthordare (لعبة كت أو رواية)
-async def truth_or_dare_game(update: Update, context: CallbackContext):
-    try:
-        question = random.choice(truth_or_dare)
-        await update.message.reply_text(f"🎲 {question}")
-    except Exception as e:
-        logger.error(f"حدث خطأ في لعبة كت أو رواية: {e}")
-
-# الرد التلقائي على الرسائل
+# الرد التلقائي على الرسائل باستخدام GPT-3
 async def reply_randomly(update: Update, context: CallbackContext):
     try:
         if update.message.text:
-            response = random.choice(random_replies)
-            await update.message.reply_text(response)
+            # إرسال النص إلى OpenAI للحصول على رد ذكي
+            response = openai.Completion.create(
+                engine="text-davinci-003",  # يمكنك استخدام نموذج GPT-3 آخر إذا أردت
+                prompt=update.message.text,
+                max_tokens=150,
+                n=1,
+                stop=None,
+                temperature=0.7,
+            )
+            # إرسال الرد إلى المستخدم
+            await update.message.reply_text(response.choices[0].text.strip())
     except Exception as e:
         logger.error(f"حدث خطأ في الرد العشوائي: {e}")
-
-# أمر /mute (كتم عضو)
-async def mute(update: Update, context: CallbackContext):
-    try:
-        if not context.args:
-            await update.message.reply_text("يرجى تحديد المستخدم @username")
-            return
-        user = context.args[0]
-        await update.message.chat.restrict_member(user, ChatPermissions(can_send_messages=False))
-        await update.message.reply_text(f"🚫 تم كتم {user} بنجاح!")
-    except Exception as e:
-        logger.error(f"حدث خطأ في كتم المستخدم: {e}")
-        await update.message.reply_text("حدث خطأ أثناء محاولة كتم العضو.")
-
-# أمر /unmute (إلغاء كتم عضو)
-async def unmute(update: Update, context: CallbackContext):
-    try:
-        if not context.args:
-            await update.message.reply_text("يرجى تحديد المستخدم @username")
-            return
-        user = context.args[0]
-        await update.message.chat.restrict_member(user, ChatPermissions(can_send_messages=True))
-        await update.message.reply_text(f"✅ تم إلغاء كتم {user} بنجاح!")
-    except Exception as e:
-        logger.error(f"حدث خطأ في إلغاء كتم المستخدم: {e}")
-        await update.message.reply_text("حدث خطأ أثناء محاولة إلغاء كتم العضو.")
 
 # إعداد وتشغيل البوت
 async def main():
@@ -101,9 +77,6 @@ async def main():
 
         # إضافة المعالجات للأوامر
         app.add_handler(CommandHandler("start", start))
-        app.add_handler(CommandHandler("truthordare", truth_or_dare_game))
-        app.add_handler(CommandHandler("mute", mute))
-        app.add_handler(CommandHandler("unmute", unmute))
         app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, reply_randomly))
         
         # إضافة معالج الأخطاء العام
@@ -115,4 +88,5 @@ async def main():
         logger.error(f"حدث خطأ أثناء تشغيل البوت: {e}")
 
 if __name__ == "__main__":
+    import asyncio
     asyncio.run(main())
