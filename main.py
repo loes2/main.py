@@ -4,6 +4,7 @@ from dotenv import load_dotenv
 from telegram import Update
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, CallbackContext
 import openai
+import asyncio
 
 # تحميل المتغيرات من ملف .env
 load_dotenv()
@@ -68,7 +69,10 @@ async def main() -> None:
         await application.run_polling(drop_pending_updates=True)
     except Exception as e:
         logger.error(f"حدث خطأ أثناء تشغيل البوت: {e}")
+    finally:
+        # إغلاق الـ event loop بشكل سليم
+        await application.shutdown()
 
 if __name__ == '__main__':
-    import asyncio
+    # تأكد من أن يتم تشغيل الـ event loop بشكل صحيح
     asyncio.run(main())
