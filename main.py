@@ -1,9 +1,9 @@
 import logging
 import os
+import openai
 from dotenv import load_dotenv
 from telegram import Update
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, CallbackContext
-import openai
 import asyncio
 
 # تحميل المتغيرات من ملف .env
@@ -73,6 +73,6 @@ async def main() -> None:
         # إغلاق الـ event loop بشكل سليم
         await application.shutdown()
 
+# دالة أساسية لتشغيل التطبيق
 if __name__ == '__main__':
-    # تأكد من أن يتم تشغيل الـ event loop بشكل صحيح
     asyncio.run(main())
