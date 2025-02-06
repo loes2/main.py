@@ -69,9 +69,6 @@ async def main() -> None:
         await application.run_polling(drop_pending_updates=True)
     except Exception as e:
         logger.error(f"حدث خطأ أثناء تشغيل البوت: {e}")
-    finally:
-        # إغلاق الـ event loop بشكل سليم
-        await application.shutdown()
 
 # دالة أساسية لتشغيل التطبيق
 if __name__ == '__main__':
