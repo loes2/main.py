@@ -1,62 +1,74 @@
-import os
-import asyncio
 import logging
+import os
 from dotenv import load_dotenv
 from telegram import Update
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, CallbackContext
 import openai
 
-# تحميل المتغيرات من .env
+# تحميل المتغيرات من ملف .env
 load_dotenv()
-TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 
-# التحقق من أن المتغيرات تم تحميلها بنجاح
-if not TELEGRAM_BOT_TOKEN:
-    raise ValueError("🚨 خطأ: لم يتم العثور على TELEGRAM_BOT_TOKEN في البيئة!")
-if not OPENAI_API_KEY:
-    raise ValueError("🚨 خطأ: لم يتم العثور على OPENAI_API_KEY في البيئة!")
+# الحصول على التوكن والمفتاح من البيئة
+TELEGRAM_BOT_TOKEN = os.getenv('TELEGRAM_BOT_TOKEN')
+OPENAI_API_KEY = os.getenv('OPENAI_API_KEY')
 
-# إعداد OpenAI
+# إعداد الـ OpenAI
 openai.api_key = OPENAI_API_KEY
 
-# إعداد نظام التسجيل
-logging.basicConfig(
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO
-)
+# إعداد تسجيل الأحداث (Logging)
+logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+                    level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# دالة لمعالجة الرسائل
-async def handle_message(update: Update, context: CallbackContext) -> None:
-    user_message = update.message.text
+# دالة الرد على الرسائل الخاصة
+async def start(update: Update, context: CallbackContext) -> None:
+    # إذا كانت الرسالة من المستخدم الخاص (وليس من مجموعة)
+    if update.message.chat.type == 'private':
+        await update.message.reply_text("مرحبًا! كيف يمكنني مساعدتك؟")
+    else:
+        # لا يرد في المجموعات
+        pass
 
-    try:
-        # إرسال الطلب إلى OpenAI
-        response = openai.ChatCompletion.create(
-            model="gpt-3.5-turbo",
-            messages=[{"role": "user", "content": user_message}]
-        )
-        reply_text = response["choices"][0]["message"]["content"]
-    except Exception as e:
-        logger.error(f"⚠️ خطأ أثناء الاتصال بـ OpenAI: {e}")
-        reply_text = "عذرًا، حدث خطأ أثناء معالجة طلبك."
+# دالة للتفاعل مع OpenAI (اختياري)
+async def chat_with_openai(update: Update, context: CallbackContext) -> None:
+    if update.message.chat.type == 'private':
+        user_message = update.message.text
 
-    await update.message.reply_text(reply_text)
+        try:
+            response = openai.Completion.create(
+                model="text-davinci-003",
+                prompt=user_message,
+                max_tokens=150
+            )
+            await update.message.reply_text(response.choices[0].text.strip())
+        except openai.error.OpenAIError as e:
+            await update.message.reply_text("عذرًا، حدث خطأ أثناء الاتصال بـ OpenAI.")
+            logger.error(f"خطأ أثناء الاتصال بـ OpenAI: {e}")
+        except Exception as e:
+            await update.message.reply_text("عذرًا، حدث خطأ غير معروف.")
+            logger.error(f"خطأ غير معروف: {e}")
 
-# دالة لبدء التشغيل
-def main():
+# دالة لمعالجة الأخطاء
+def error(update: Update, context: CallbackContext) -> None:
+    logger.warning(f'خطأ في التحديث {update} - {context.error}')
+
+# دالة لتشغيل البوت
+async def main() -> None:
     application = Application.builder().token(TELEGRAM_BOT_TOKEN).build()
 
-    # إضافة معالج للرسائل
-    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
+    # إضافة أوامر البوت
+    application.add_handler(CommandHandler('start', start))
+    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, chat_with_openai))
 
-    # تشغيل البوت باستخدام asyncio.run() لمنع مشاكل event loop
+    # إضافة دالة للأخطاء
+    application.add_error_handler(error)
+
+    # تشغيل البوت
     try:
-        asyncio.run(application.run_polling())
-    except RuntimeError:
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-        loop.run_until_complete(application.run_polling())
+        await application.run_polling(drop_pending_updates=True)
+    except Exception as e:
+        logger.error(f"حدث خطأ أثناء تشغيل البوت: {e}")
 
-if __name__ == "__main__":
-    main()
+if __name__ == '__main__':
+    import asyncio
+    asyncio.run(main())
