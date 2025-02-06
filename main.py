@@ -3,7 +3,7 @@ import os
 import openai
 from dotenv import load_dotenv
 from telegram import Update
-from telegram.ext import Application, CommandHandler, MessageHandler, filters, CallbackContext
+from telegram.ext import Application, CommandHandler, MessageHandler, filters, CallbackContext, ContextTypes
 
 # تحميل المتغيرات من ملف .env
 load_dotenv()
@@ -12,35 +12,33 @@ load_dotenv()
 TELEGRAM_BOT_TOKEN = os.getenv('TELEGRAM_BOT_TOKEN')
 OPENAI_API_KEY = os.getenv('OPENAI_API_KEY')
 
-# إعداد الـ OpenAI
+# إعداد OpenAI
 openai.api_key = OPENAI_API_KEY
 
 # إعداد تسجيل الأحداث (Logging)
-logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-                    level=logging.INFO)
+logging.basicConfig(
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    level=logging.INFO
+)
 logger = logging.getLogger(__name__)
 
-# دالة الرد على الرسائل الخاصة
+# دالة الرد على /start في الخاص فقط
 async def start(update: Update, context: CallbackContext) -> None:
-    # إذا كانت الرسالة من المستخدم الخاص (وليس من مجموعة)
     if update.message.chat.type == 'private':
         await update.message.reply_text("مرحبًا! كيف يمكنني مساعدتك؟")
-    else:
-        # لا يرد في المجموعات
-        pass
 
-# دالة للتفاعل مع OpenAI (اختياري)
+# دالة التفاعل مع OpenAI في الخاص فقط
 async def chat_with_openai(update: Update, context: CallbackContext) -> None:
     if update.message.chat.type == 'private':
         user_message = update.message.text
 
         try:
-            response = openai.Completion.create(
-                model="text-davinci-003",
-                prompt=user_message,
-                max_tokens=150
+            response = openai.ChatCompletion.create(
+                model="gpt-3.5-turbo",
+                messages=[{"role": "user", "content": user_message}]
             )
-            await update.message.reply_text(response.choices[0].text.strip())
+            reply_text = response['choices'][0]['message']['content'].strip()
+            await update.message.reply_text(reply_text)
         except openai.error.OpenAIError as e:
             await update.message.reply_text("عذرًا، حدث خطأ أثناء الاتصال بـ OpenAI.")
             logger.error(f"خطأ أثناء الاتصال بـ OpenAI: {e}")
@@ -52,9 +50,9 @@ async def chat_with_openai(update: Update, context: CallbackContext) -> None:
 def error(update: Update, context: CallbackContext) -> None:
     logger.warning(f'خطأ في التحديث {update} - {context.error}')
 
-# دالة لتشغيل البوت
+# تشغيل البوت
 async def main() -> None:
-    application = Application.builder().token(TELEGRAM_BOT_TOKEN).build()
+    application = Application.builder().token(TELEGRAM_BOT_TOKEN).context_types(ContextTypes.DEFAULT_TYPE).build()
 
     # إضافة أوامر البوت
     application.add_handler(CommandHandler('start', start))
@@ -64,16 +62,13 @@ async def main() -> None:
     application.add_error_handler(error)
 
     # تشغيل البوت
-    try:
-        await application.run_polling(drop_pending_updates=True)
-    except Exception as e:
-        logger.error(f"حدث خطأ أثناء تشغيل البوت: {e}")
+    logger.info("✅ البوت يعمل الآن...")
+    await application.run_polling(drop_pending_updates=True)
 
-# دالة أساسية لتشغيل التطبيق
+# تشغيل البوت إذا كان السكريبت الرئيسي
 if __name__ == '__main__':
+    import asyncio
     try:
-        # تشغيل البوت باستخدام run_polling مباشرة
-        application = Application.builder().token(TELEGRAM_BOT_TOKEN).build()
-        application.run_polling(drop_pending_updates=True)
+        asyncio.run(main())  # حل مشكلة event loop
     except Exception as e:
-        logger.error(f"حدث خطأ أثناء تشغيل البوت: {e}")
+        logger.error(f"❌ حدث خطأ أثناء تشغيل البوت: {e}")
