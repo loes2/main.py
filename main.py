@@ -72,4 +72,5 @@ async def main() -> None:
 
 # دالة أساسية لتشغيل التطبيق
 if __name__ == '__main__':
+    # تشغيل البوت باستخدام asyncio.run
     asyncio.run(main())
